@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: ledger
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/ledger}
+    username: ${SPRING_DATASOURCE_USERNAME:ledger}
+    password: ${SPRING_DATASOURCE_PASSWORD:ledger}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+
+server:
+  port: 8080

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Ledger</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #1a1a1a; }
+    body { max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.5rem; }
+    h2 { font-size: 1.1rem; margin-top: 2rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #ddd; }
+    th { background: #f4f4f4; }
+    .flash { padding: 0.75rem; border-radius: 6px; margin: 1rem 0; }
+    .flash.ok { background: #e6f4ea; border: 1px solid #34a853; }
+    .flash.err { background: #fce8e6; border: 1px solid #ea4335; }
+    form.inline { display: inline; }
+    button, .btn {
+      cursor: pointer;
+      padding: 0.25rem 0.6rem;
+      font-size: 0.85rem;
+      border-radius: 4px;
+      border: 1px solid #333;
+      background: #fff;
+    }
+    button.danger { border-color: #b3261e; color: #b3261e; }
+    button.btn-muted { border-color: #888; color: #555; background: #f5f5f5; font-size: 0.8rem; }
+    fieldset { border: 1px solid #ccc; border-radius: 6px; padding: 1rem; margin-top: 0.5rem; }
+    label { display: inline-block; min-width: 7rem; }
+    .row { margin: 0.5rem 0; }
+    .muted { color: #666; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+<h1>Ledger</h1>
+
+<div th:if="${flashSuccess}" class="flash ok" th:text="${flashSuccess}"></div>
+<div th:if="${flashError}" class="flash err" th:text="${flashError}"></div>
+
+<h2>Accounts</h2>
+<table>
+  <thead><tr><th>ID</th><th>Name</th><th>Balance</th></tr></thead>
+  <tbody>
+  <tr th:each="a : ${accounts}">
+    <td th:text="${a.id}">1</td>
+    <td th:text="${a.name}">Name</td>
+    <td th:text="${#numbers.formatDecimal(a.balance, 1, 'COMMA', 2, 'POINT')}">0.00</td>
+  </tr>
+  </tbody>
+</table>
+
+<h2>New account</h2>
+<p class="muted">Optional opening balance (default 0).</p>
+<form th:action="@{/accounts}" method="post">
+  <fieldset>
+    <div class="row">
+      <label for="acctName">Name</label>
+      <input id="acctName" name="name" type="text" required maxlength="255" placeholder="Account name"/>
+    </div>
+    <div class="row">
+      <label for="openingBalance">Opening balance</label>
+      <input id="openingBalance" name="openingBalance" type="text" inputmode="decimal" placeholder="0.00"/>
+    </div>
+    <button type="submit">Create account</button>
+  </fieldset>
+</form>
+
+<h2>Deposit</h2>
+<p class="muted">External credit to one account (not a transfer between accounts).</p>
+<form th:action="@{/deposit}" method="post" th:if="${!accounts.isEmpty()}">
+  <fieldset>
+    <div class="row">
+      <label for="depAccount">Account</label>
+      <select id="depAccount" name="accountId" required>
+        <option th:each="a : ${accounts}" th:value="${a.id}"
+                th:text="|${a.id} — ${a.name}|"></option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="depAmount">Amount</label>
+      <input id="depAmount" name="amount" type="text" inputmode="decimal" required placeholder="0.00"/>
+    </div>
+    <button type="submit">Deposit</button>
+  </fieldset>
+</form>
+
+<h2>New transfer</h2>
+<form th:action="@{/transfer}" method="post" th:if="${accounts.size() >= 2}">
+  <fieldset>
+    <div class="row">
+      <label for="fromId">From account</label>
+      <select id="fromId" name="fromId" required>
+        <option th:each="a : ${accounts}" th:value="${a.id}"
+                th:text="|${a.id} — ${a.name} (${#numbers.formatDecimal(a.balance, 1, 'COMMA', 2, 'POINT')})|"></option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="toId">To account</label>
+      <select id="toId" name="toId" required>
+        <option th:each="a : ${accounts}" th:value="${a.id}"
+                th:text="|${a.id} — ${a.name}|"></option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="amount">Amount</label>
+      <input id="amount" name="amount" type="text" inputmode="decimal" required placeholder="0.00"/>
+    </div>
+    <button type="submit">Transfer</button>
+  </fieldset>
+</form>
+<p class="muted" th:if="${accounts.size() < 2}">Add at least two accounts to move money between them.</p>
+
+<h2>Recent transfers</h2>
+<p class="muted">Newest first. A second undo on the same row is a no-op (see audit log).</p>
+<table>
+  <thead><tr><th>ID</th><th>From → To</th><th>Amount</th><th>When</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  <tr th:each="t : ${transfers}">
+    <td th:text="${t.id}">1</td>
+    <td>
+      <span th:text="${t.fromAccount.id}">1</span> →
+      <span th:text="${t.toAccount.id}">2</span>
+    </td>
+    <td th:text="${#numbers.formatDecimal(t.amount, 1, 'COMMA', 2, 'POINT')}">0</td>
+    <td th:text="${#temporals.format(t.createdAt, 'yyyy-MM-dd HH:mm:ss')}">—</td>
+    <td th:text="${t.reversed ? 'Reversed' : 'Completed'}">Completed</td>
+    <td>
+      <form class="inline" th:action="@{/transfers/{id}/reverse(id=${t.id})}" method="post">
+        <button type="submit"
+                th:class="${t.reversed} ? 'btn-muted' : 'danger'"
+                th:text="${t.reversed} ? 'Undo again' : 'Reverse'">Reverse</button>
+      </form>
+    </td>
+  </tr>
+  </tbody>
+</table>
+
+<h2>Audit log (latest 100)</h2>
+<table>
+  <thead><tr><th>When</th><th>Op</th><th>From</th><th>To</th><th>Amount</th><th>Outcome</th><th>Detail</th></tr></thead>
+  <tbody>
+  <tr th:each="e : ${audit}">
+    <td th:text="${#temporals.format(e.createdAt, 'yyyy-MM-dd HH:mm:ss')}">—</td>
+    <td th:text="${e.operationType}">TRANSFER</td>
+    <td th:text="${e.fromAccountId}">—</td>
+    <td th:text="${e.toAccountId}">—</td>
+    <td th:text="${e.amount != null ? #numbers.formatDecimal(e.amount, 1, 'COMMA', 2, 'POINT') : '—'}">—</td>
+    <td th:text="${e.outcome}">SUCCESS</td>
+    <td th:text="${e.detail}">—</td>
+  </tr>
+  </tbody>
+</table>
+</body>
+</html>

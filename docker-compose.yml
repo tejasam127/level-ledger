@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ledger
+      POSTGRES_PASSWORD: ledger
+      POSTGRES_DB: ledger
+    ports:
+      # Host 5433 avoids clashing with a local Postgres often bound to 5432.
+      - "5433:5432"
+    volumes:
+      - ledger_pg_data:/var/lib/postgresql/data
+
+volumes:
+  ledger_pg_data:
